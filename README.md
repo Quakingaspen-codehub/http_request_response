@@ -11,7 +11,8 @@
 The main target of this library is to standardize the request response in case of using flask-restplus library.
  
 <h2 id="Started">Getting Started</h2>
-In order to install, open the command prompt and type:
+In order to install, open the command prompt and type ✌️:
+
 ```
 pip install http-request-response
 ```
