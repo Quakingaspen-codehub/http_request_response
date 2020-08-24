@@ -5,7 +5,6 @@
 # http_request_response
 [Introduction](#Introduction)\
 [Getting Started](#Started)\
-[Example](#Example)\
 [Contributors](#Contributors)\
 [License](#License)
 <h2 id="Introduction">Introduction</h2>
