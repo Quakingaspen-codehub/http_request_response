@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="http_request_response",
-    version="0.0.6",
+    version="0.0.7",
     author="Quaking Aspen",
     author_email="info@quakingaspen.net",
     license='MIT',
@@ -21,4 +21,5 @@ setuptools.setup(
     ],
     platform=['Any'],
     python_requires='>=3.6',
+    install_requires=['http-status-code==0.0.7']
 )
