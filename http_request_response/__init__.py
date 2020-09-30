@@ -26,18 +26,16 @@ class RequestResponse:
 
 class RequestUtilities:
     @staticmethod
-    def get_request_context(exception=False):
+    def get_request_context():
         context = dict()
         if has_request_context():
             context['url'] = request.url
             context['remote_addr'] = request.remote_addr
             context['method'] = request.method
 
-            if exception:
-                # Add extra information in case of any exception
-                context['headers'] = request.headers
-                context['url_args'] = request.args
-                context['body'] = request.json
+            context['headers'] = request.headers
+            context['url_args'] = request.args
+            context['body'] = request.json
 
             try:
                 # Claims are not available in case of login endpoint and when the token is not provided
@@ -63,11 +61,11 @@ class RequestUtilities:
                 status, data = fn(*args, **kwargs)
 
                 try:
-                   # Logging
-                   app.app_info_logger.info(RequestUtilities.get_request_context())
+                    # Logging
+                    app.app_info_logger.info(RequestUtilities.get_request_context())
                 except:
                     # Logging
-                   app.logger.info(RequestUtilities.get_request_context())
+                    app.logger.info(RequestUtilities.get_request_context())
 
 
             except Exception as e:
@@ -81,8 +79,6 @@ class RequestUtilities:
 
                     # Logging
                     app.logger.exception(RequestUtilities.get_request_context(exception=True))
-
-
 
             rs = RequestResponse(status_code=status.code, message=status.message, data=data)
             return rs()
