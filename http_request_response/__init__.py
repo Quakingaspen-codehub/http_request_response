@@ -74,11 +74,11 @@ class RequestUtilities:
 
                 try:
                     # Logging
-                    app.app_exc_logger.exception(RequestUtilities.get_request_context(exception=True))
+                    app.app_exc_logger.exception(RequestUtilities.get_request_context())
                 except:
 
                     # Logging
-                    app.logger.exception(RequestUtilities.get_request_context(exception=True))
+                    app.logger.exception(RequestUtilities.get_request_context())
 
             rs = RequestResponse(status_code=status.code, message=status.message, data=data)
             return rs()
