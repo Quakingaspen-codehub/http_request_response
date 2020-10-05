@@ -38,6 +38,13 @@ class RequestUtilities:
             context['body'] = request.json
 
             try:
+                request.body_args.pop('file_bytes')
+            except:
+                print('body_args has not been initiated yet due to some missing args. ')
+
+            context['file_body_args'] = request.body_args
+
+            try:
                 # Claims are not available in case of login endpoint and when the token is not provided
                 claims = get_jwt_identity()
                 if 'email' in claims:
