@@ -6,6 +6,7 @@ from flask_jwt_extended import get_jwt_identity
 from http_status_code.standard import bad_request
 
 
+
 class RequestResponse:
 
     def __init__(self, status_code=None, data=None, message=None):
