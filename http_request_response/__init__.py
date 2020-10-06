@@ -1,7 +1,8 @@
-from flask import request, has_request_context
-from flask import current_app as app
-from flask_jwt_extended import get_jwt_identity
 from functools import wraps
+
+from flask import current_app as app
+from flask import request, has_request_context
+from flask_jwt_extended import get_jwt_identity
 from http_status_code.standard import bad_request
 
 
@@ -33,27 +34,25 @@ class RequestUtilities:
             context['remote_addr'] = request.remote_addr
             context['method'] = request.method
 
-            context['headers'] = request.headers
-            context['url_args'] = request.args
-            context['body'] = request.json
+            # Query string args
+            context['original_qs_args'] = request.args
+            context['processed_qs_args'] = request.qs_args
 
+            # Body args
             try:
-                request.body_args.pop('file_bytes')
+                request.json.pop('password', None)
+                request.body_args.pop('password', None)
             except:
-                print('body_args has not been initiated yet due to some missing args. ')
-
-            context['file_body_args'] = request.body_args
+                pass
+            request.body_args.pop('file_bytes', None)  # Pop any file bytes
+            context['original_body_args'] = request.json
+            context['processed_body_args'] = request.body_args
 
             try:
+                context['claims'] = request.claims
+            except:
                 # Claims are not available in case of login endpoint and when the token is not provided
-                claims = get_jwt_identity()
-                if 'email' in claims:
-                    context['email'] = claims['email']
-            except:
-                if request.json and 'email' in request.json:
-                    context['email'] = request.json['email']
-                else:
-                    context['email'] = 'Anonymous'
+                pass
 
         return context
 
@@ -64,28 +63,23 @@ class RequestUtilities:
         @wraps(fn)
         def wrapper(*args, **kwargs):
             try:
-                # Action
                 status, data = fn(*args, **kwargs)
 
-                try:
-                    # Logging
-                    app.app_info_logger.info(RequestUtilities.get_request_context())
-                except:
-                    # Logging
-                    app.logger.info(RequestUtilities.get_request_context())
+                if app.config.get('ENV_NAME') != 'Development':
+                    try:
+                        app.app_info_logger.info(RequestUtilities.get_request_context())
+                    except:
+                        pass
 
 
             except Exception as e:
                 status, data = bad_request, None
                 status.update_msg(e)
-
-                try:
-                    # Logging
-                    app.app_exc_logger.exception(RequestUtilities.get_request_context())
-                except:
-
-                    # Logging
-                    app.logger.exception(RequestUtilities.get_request_context())
+                if app.config.get('ENV_NAME') != 'Development':
+                    try:
+                        app.app_exc_logger.exception(RequestUtilities.get_request_context())
+                    except:
+                        pass
 
             rs = RequestResponse(status_code=status.code, message=status.message, data=data)
             return rs()
