@@ -6,7 +6,6 @@ from flask_jwt_extended import get_jwt_identity
 from http_status_code.standard import bad_request
 
 
-
 class RequestResponse:
 
     def __init__(self, status_code=None, data=None, message=None):
@@ -41,10 +40,16 @@ class RequestUtilities:
 
             # Body args
             try:
-                request.json.pop('password', None)
-                request.body_args.pop('password', None)
+                for key in request.body_args:
+                    if 'password' in key or 'db_uri' in key:
+                        request.body_args.pop(key, None)
+
+                for key in request.json:
+                    if 'password' in key or 'db_uri' in key:
+                        request.json.pop(key, None)
             except:
                 pass
+            
             request.body_args.pop('file_bytes', None)  # Pop any file bytes
             context['original_body_args'] = request.json
             context['processed_body_args'] = request.body_args
@@ -65,7 +70,7 @@ class RequestUtilities:
         def wrapper(*args, **kwargs):
             try:
                 status, data = fn(*args, **kwargs)
-
+                
                 if app.config.get('ENV_NAME') != 'Development':
                     try:
                         app.app_info_logger.info(RequestUtilities.get_request_context())
