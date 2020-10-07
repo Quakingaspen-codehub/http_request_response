@@ -21,5 +21,5 @@ setuptools.setup(
     ],
     platform=['Any'],
     python_requires='>=3.6',
-    install_requires=['http-status-code==0.0.7']
+    install_requires=['http-status-code==0.0.8']
 )
