@@ -49,7 +49,7 @@ class RequestUtilities:
                         request.json.pop(key, None)
             except:
                 pass
-            
+
             request.body_args.pop('file_bytes', None)  # Pop any file bytes
             context['original_body_args'] = request.json
             context['processed_body_args'] = request.body_args
@@ -70,8 +70,9 @@ class RequestUtilities:
         def wrapper(*args, **kwargs):
             try:
                 status, data = fn(*args, **kwargs)
-                
+
                 if app.config.get('ENV_NAME') != 'Development':
+                    # Do not log INFO to development server
                     try:
                         app.app_info_logger.info(RequestUtilities.get_request_context())
                     except:
@@ -80,12 +81,17 @@ class RequestUtilities:
 
             except Exception as e:
                 status, data = bad_request, None
-                status.update_msg(e)
-                if app.config.get('ENV_NAME') != 'Development':
-                    try:
-                        app.app_exc_logger.exception(RequestUtilities.get_request_context())
-                    except:
-                        pass
+                if app.config.get('ENV_NAME') != 'Production':
+                    status.update_msg(e)
+                else:
+                    # Do not return the Exception to the user, on the prouction server
+                    status.update_msg(f'Something went wrong. Error code: {status.code}')
+
+                # Always log Exceptions
+                try:
+                    app.app_exc_logger.exception(RequestUtilities.get_request_context())
+                except:
+                    pass
 
             rs = RequestResponse(status_code=status.code, message=status.message, data=data)
             return rs()
