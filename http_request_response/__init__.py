@@ -39,29 +39,22 @@ class RequestUtilities:
             context['method'] = request.method
 
             # Query string args
-            context['original_qs_args'] = request.args
             try:
-                context['processed_qs_args'] = request.qs_args if request.qs_args else {}
+                context['qs_args'] = request.qs_args
             except:
-                context['processed_qs_args'] = {}
+                context['qs_args'] = {}
 
-            # Body argsest.j
+            # Body args
             try:
-                body_args = copy.deepcopy(request.body_args)
-                for key in body_args:
+                for key in list(request.body_args.keys()):
                     if 'password' in key or 'db_uri' in key:
                         request.body_args.pop(key, None)
-
-                request_json = copy.deepcopy(request.json)
-                for key in request_json:
-                    if 'password' in key or 'db_uri' in key:
-                        request.json.pop(key, None)
+                context['body_args'] = request.body_args
 
                 # Pop any file bytes
                 dict(request.body_args).pop('file_bytes', None)
             except Exception as e:
-                context['original_body_args'] = {}
-                context['processed_body_args'] = {}
+                context['body_args'] = {}
 
             # Claims
             try:
@@ -114,6 +107,8 @@ class RequestUtilities:
                               f"\nMethod: {request.method}" \
                               f"\n\nStatus code: {status.code}" \
                               f"\nStatus message: {status.message}" \
+                              f"\n\nQs args\n{request.args}" \
+                              f"\n\nBody args:\n{request.json}" \
                               f"\n\nRequest context:\n{request_context}" \
                               f"\n\nArgs validation response:\n{data}"
 
@@ -129,13 +124,13 @@ class RequestUtilities:
                         except Exception as e:
                             app.app_exc_logger.exception('Notification manager failed. Status code 410')
 
-                        # Update the status mesaage
+                        # Update the status message
                         RequestUtilities.update_status_message(status, data)
 
             except Exception as exc:
                 full_traceback = traceback.format_exc()
 
-                # Update the status mesaage
+                # Update the status message
                 RequestUtilities.update_status_message(status, exc)
 
                 # Format a message
@@ -145,6 +140,8 @@ class RequestUtilities:
                       f"\n\nIP: {request.remote_addr}" \
                       f"\nURL: {request.url}" \
                       f"\nMethod: {request.method}" \
+                      f"\n\nQs args\n{request.args}" \
+                      f"\n\nBody args:\n{request.json}" \
                       f"\n\nRequest context:\n{request_context}" \
                       f"\n\nException: {exc}" \
                       f"\nException type: {type(exc)}" \
