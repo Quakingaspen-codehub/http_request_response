@@ -1,5 +1,9 @@
+import traceback
+from datetime import datetime
 from functools import wraps
+import copy
 
+import requests
 from flask import current_app as app
 from flask import request, has_request_context
 from flask_jwt_extended import get_jwt_identity
@@ -36,31 +40,46 @@ class RequestUtilities:
 
             # Query string args
             context['original_qs_args'] = request.args
-            context['processed_qs_args'] = request.qs_args
-
-            # Body args
             try:
-                for key in request.body_args:
+                context['processed_qs_args'] = request.qs_args if request.qs_args else {}
+            except:
+                context['processed_qs_args'] = {}
+
+            # Body argsest.j
+            try:
+                body_args = copy.deepcopy(request.body_args)
+                for key in body_args:
                     if 'password' in key or 'db_uri' in key:
                         request.body_args.pop(key, None)
 
-                for key in request.json:
+                request_json = copy.deepcopy(request.json)
+                for key in request_json:
                     if 'password' in key or 'db_uri' in key:
                         request.json.pop(key, None)
-            except:
-                pass
 
-            request.body_args.pop('file_bytes', None)  # Pop any file bytes
-            context['original_body_args'] = request.json
-            context['processed_body_args'] = request.body_args
+                # Pop any file bytes
+                dict(request.body_args).pop('file_bytes', None)
+            except Exception as e:
+                context['original_body_args'] = {}
+                context['processed_body_args'] = {}
 
+            # Claims
             try:
                 context['claims'] = request.claims
             except:
-                # Claims are not available in case of login endpoint and when the token is not provided
-                pass
+                context['claims'] = {}
 
         return context
+
+    @staticmethod
+    def update_status_message(status, msg):
+        # Update the status mesaage
+        if app.config.get('SHOW_EXCEPTION'):
+            status.update_msg(msg)
+        else:
+            # Do not return the Exception to the user, on the prouction server
+            status.update_msg(f'Something went wrong. '
+                              f'Our technical team is doing their best to take care of it.')
 
     @staticmethod
     def try_except(fn):
@@ -68,32 +87,107 @@ class RequestUtilities:
 
         @wraps(fn)
         def wrapper(*args, **kwargs):
+            status = bad_request
+            request_context = {}
+            data = {}
+
             try:
                 status, data = fn(*args, **kwargs)
-
-                if app.config.get('ENV_NAME') != 'Development':
-                    # Do not log INFO to development server
+                if app.config.get('LOG_INFO'):
                     try:
-                        app.app_info_logger.info(RequestUtilities.get_request_context())
-                    except:
-                        pass
+                        request_context = RequestUtilities.get_request_context()
+                    except Exception as e:
+                        NotifcationManager.send('Request Context failed.')
 
+                    try:
+                        app.app_info_logger.info(request_context)
+                    except Exception as e:
+                        NotifcationManager.send('INFO Logger failed.')
 
-            except Exception as e:
-                status, data = bad_request, None
-                if app.config.get('ENV_NAME') != 'Production':
-                    status.update_msg(e)
-                else:
-                    # Do not return the Exception to the user, on the prouction server
-                    status.update_msg(f'Something went wrong. Error code: {status.code}')
+                    if status.code == 410:
+                        # Format a message
+                        msg = f"{datetime.utcnow()} UTC." \
+                              f"\n{app.config.get('APPLICATION_NAME')}" \
+                              f"\n{app.config.get('ENV_NAME')}." \
+                              f"\n\nIP: {request.remote_addr}" \
+                              f"\nURL: {request.url}" \
+                              f"\nMethod: {request.method}" \
+                              f"\n\nStatus code: {status.code}" \
+                              f"\nStatus message: {status.message}" \
+                              f"\n\nRequest context:\n{request_context}" \
+                              f"\n\nArgs validation response:\n{data}"
 
-                # Always log Exceptions
+                        # Log status code 410 as an exception
+                        try:
+                            app.app_exc_logger.exception(msg)
+                        except:
+                            NotifcationManager.send('Logger failed. Status code 410')
+
+                        # Notification
+                        try:
+                            NotifcationManager.send(msg)
+                        except Exception as e:
+                            app.app_exc_logger.exception('Notification manager failed. Status code 410')
+
+                        # Update the status mesaage
+                        RequestUtilities.update_status_message(status, data)
+
+            except Exception as exc:
+                full_traceback = traceback.format_exc()
+
+                # Update the status mesaage
+                RequestUtilities.update_status_message(status, exc)
+
+                # Format a message
+                msg = f"{datetime.utcnow()} UTC." \
+                      f"\n{app.config.get('APPLICATION_NAME')}" \
+                      f"\n{app.config.get('ENV_NAME')}." \
+                      f"\n\nIP: {request.remote_addr}" \
+                      f"\nURL: {request.url}" \
+                      f"\nMethod: {request.method}" \
+                      f"\n\nRequest context:\n{request_context}" \
+                      f"\n\nException: {exc}" \
+                      f"\nException type: {type(exc)}" \
+                      f"\n\nFull Traceback:\n{full_traceback}"
+
                 try:
-                    app.app_exc_logger.exception(RequestUtilities.get_request_context())
-                except:
-                    pass
+                    app.app_exc_logger.exception(msg)
+                except Exception as e:
+                    NotifcationManager.send('EXC Logger failed')
+
+                try:
+                    NotifcationManager.send(msg)
+                except Exception as e:
+                    app.app_exc_logger.exception('Notification manager failed. Bad request.')
 
             rs = RequestResponse(status_code=status.code, message=status.message, data=data)
             return rs()
 
         return wrapper
+
+
+class NotifcationManager:
+
+    @staticmethod
+    def send(msg):
+        NotifcationManager.notify_telegram(msg)
+        NotifcationManager.notify_slack(msg)
+
+    @staticmethod
+    def notify_telegram(msg):
+        try:
+            url = app.config['TELEGRAM_API_URL']
+            chat_id = app.config['TELEGRAM_CONV_ID']
+        except:
+            return
+        payload = {'text': msg, 'chat_id': chat_id}
+        requests.post(url=url, json=payload)
+
+    @staticmethod
+    def notify_slack(msg):
+        try:
+            url = app.config['SLACK_API_URL']
+        except:
+            return
+        payload = {'text': msg}
+        requests.post(url=url, json=payload)
