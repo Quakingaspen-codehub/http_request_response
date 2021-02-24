@@ -75,7 +75,18 @@ class RequestUtilities:
                               f'Our technical team is doing their best to take care of it.')
 
     @staticmethod
-    def try_except(fn):
+    def pop_password():
+        try:
+            if 'password' in request.args:
+                request.args.pop('password')
+
+            if 'password' in request.json:
+                request.json.pop('password')
+        except:
+            return
+
+    @classmethod
+    def try_except(cls, fn):
         """A decorator for all of the actions to do try except"""
 
         @wraps(fn)
@@ -97,7 +108,11 @@ class RequestUtilities:
                     except Exception as e:
                         NotifcationManager.send('INFO Logger failed.')
 
+                    # pop password from args
+                    cls.pop_password()
+
                     if status.code == 410:
+
                         # Format a message
                         msg = f"{datetime.utcnow()} UTC." \
                               f"\n{app.config.get('APPLICATION_NAME')}" \
@@ -132,6 +147,9 @@ class RequestUtilities:
 
                 # Update the status message
                 RequestUtilities.update_status_message(status, exc)
+
+                # pop password from args
+                cls.pop_password()
 
                 # Format a message
                 msg = f"{datetime.utcnow()} UTC." \
