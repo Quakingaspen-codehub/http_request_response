@@ -142,6 +142,10 @@ class RequestUtilities:
                         # Update the status message
                         RequestUtilities.update_status_message(status, data)
 
+            except Warning as w:
+                # Messages that are directed to the user
+                status.update_msg(w)
+
             except Exception as exc:
                 full_traceback = traceback.format_exc()
 
